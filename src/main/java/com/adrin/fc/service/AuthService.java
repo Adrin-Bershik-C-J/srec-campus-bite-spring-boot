@@ -1,12 +1,17 @@
 package com.adrin.fc.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.adrin.fc.dto.request.LoginRequestDto;
+import com.adrin.fc.dto.request.RegisterRequestDto;
 import com.adrin.fc.dto.response.LoginResponseDto;
+import com.adrin.fc.dto.response.UserDto;
 import com.adrin.fc.entity.User;
+import com.adrin.fc.enums.Role;
 import com.adrin.fc.repository.UserRepository;
 import com.adrin.fc.security.JwtUtil;
 
@@ -20,6 +25,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final OtpService otpService;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginResponseDto login(LoginRequestDto request) {
 
@@ -38,6 +45,41 @@ public class AuthService {
 
         return new LoginResponseDto(token, user.getRole().name(), user.getEmail(), user.getName());
 
+    }
+
+    public UserDto register(RegisterRequestDto request) {
+        if (request.getRole() != Role.USER) {
+            throw new RuntimeException("Only USER role can self-register");
+        }
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new DataIntegrityViolationException("Email already in use");
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setName(request.getName());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(Role.USER);
+        user.setVerified(false);
+
+        User savedUser = userRepository.save(user);
+
+        otpService.sendOtp(savedUser.getEmail());
+
+        return new UserDto(savedUser.getId(), savedUser.getEmail(), savedUser.getName(), savedUser.getRole());
+    }
+
+    public void verifyEmail(String email, String otp) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (otpService.verifyOtp(email, otp)) {
+            user.setVerified(true);
+            userRepository.save(user);
+        } else {
+            throw new RuntimeException("Invalid OTP");
+        }
     }
 
 }
