@@ -4,7 +4,11 @@ import com.adrin.fc.dto.request.RegisterRequestDto;
 import com.adrin.fc.dto.response.RegisterResponseDto;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.repository.UserRepository;
+
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,7 +21,7 @@ public class AdminService {
 
     public RegisterResponseDto registerUser(RegisterRequestDto request) {
         if (userRepository.findByRollNumber(request.getRollNumber()).isPresent()) {
-            throw new RuntimeException("User with this roll number already exists");
+            throw new DataIntegrityViolationException("User with this roll number already exists");
         }
 
         User user = new User();
@@ -27,6 +31,10 @@ public class AdminService {
         user.setRole(request.getRole());
 
         User savedUser = userRepository.save(user);
+
+        if (savedUser == null) {
+            throw new EntityNotFoundException("Failed to save user");
+        }
 
         return new RegisterResponseDto(
                 savedUser.getId(),

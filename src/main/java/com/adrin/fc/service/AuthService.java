@@ -11,6 +11,7 @@ import com.adrin.fc.entity.User;
 import com.adrin.fc.repository.UserRepository;
 import com.adrin.fc.security.JwtUtil;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -27,7 +28,8 @@ public class AuthService {
                 .authenticate(new UsernamePasswordAuthenticationToken(request.getRollNumber(), request.getPassword()));
 
         User user = userRepository.findByRollNumber(request.getRollNumber())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "User not found with roll number: " + request.getRollNumber()));
 
         String token = jwtUtil.generateToken(user.getRollNumber(), user.getRole().name());
 
