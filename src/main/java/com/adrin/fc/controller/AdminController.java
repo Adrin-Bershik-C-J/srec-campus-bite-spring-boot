@@ -32,7 +32,7 @@ public class AdminController {
     @PostMapping("/register")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> register(@Valid @RequestBody RegisterRequestDto request) {
-        return ResponseEntity.ok(adminService.registerUser(request));
+        return ResponseEntity.ok(adminService.registerProvider(request));
     }
 
     @GetMapping("/users")

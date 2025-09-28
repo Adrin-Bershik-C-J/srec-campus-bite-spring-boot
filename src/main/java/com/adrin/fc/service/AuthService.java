@@ -3,7 +3,6 @@ package com.adrin.fc.service;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.Authentication;
 
 import com.adrin.fc.dto.request.LoginRequestDto;
 import com.adrin.fc.dto.response.LoginResponseDto;
@@ -24,16 +23,20 @@ public class AuthService {
 
     public LoginResponseDto login(LoginRequestDto request) {
 
-        Authentication authentication = authenticationManager
-                .authenticate(new UsernamePasswordAuthenticationToken(request.getRollNumber(), request.getPassword()));
+        authenticationManager
+                .authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        User user = userRepository.findByRollNumber(request.getRollNumber())
+        User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new EntityNotFoundException(
-                        "User not found with roll number: " + request.getRollNumber()));
+                        "User not found with email: " + request.getEmail()));
 
-        String token = jwtUtil.generateToken(user.getRollNumber(), user.getRole().name());
+        if (!user.isVerified()) {
+            throw new RuntimeException("Email not verified. Please verify before login.");
+        }
 
-        return new LoginResponseDto(token, user.getRole().name(), user.getRollNumber(), user.getName());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+
+        return new LoginResponseDto(token, user.getRole().name(), user.getEmail(), user.getName());
 
     }
 

@@ -26,7 +26,7 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String rollNumber;
+    private String email;
 
     @Column(nullable = false)
     private String password;
@@ -37,4 +37,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    private boolean verified;
 }

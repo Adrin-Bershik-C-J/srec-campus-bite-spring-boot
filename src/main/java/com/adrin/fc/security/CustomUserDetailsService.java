@@ -14,12 +14,12 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepo.findByRollNumber(username)
+        User user = userRepo.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getRollNumber())
-                .password(user.getPassword()) 
+                .username(user.getEmail())
+                .password(user.getPassword())
                 .roles(user.getRole().name())
                 .build();
     }

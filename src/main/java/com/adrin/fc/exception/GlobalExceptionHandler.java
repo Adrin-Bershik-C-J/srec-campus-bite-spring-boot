@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, String>> handleBadCredentials(BadCredentialsException ex) {
         Map<String, String> error = new HashMap<>();
-        error.put("error", "Invalid roll number or password");
+        error.put("error", "Invalid email or password");
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 

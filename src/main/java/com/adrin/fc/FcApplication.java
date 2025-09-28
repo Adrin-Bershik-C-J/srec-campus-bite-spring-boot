@@ -19,16 +19,17 @@ public class FcApplication {
 	@Bean
 	CommandLineRunner createDefaultAdmin(UserRepository userRepository, PasswordEncoder passwordEncoder) {
 		return args -> {
-			String defaultAdminRoll = "00000000001"; // Choose a fixed roll number
-			if (userRepository.findByRollNumber(defaultAdminRoll).isEmpty()) {
+			String defaultAdminEmail = "cjabershik@gmail.com";
+			if (userRepository.findByEmail(defaultAdminEmail).isEmpty()) {
 				User admin = new User();
-				admin.setRollNumber(defaultAdminRoll);
+				admin.setEmail(defaultAdminEmail);
 				admin.setName("Super Admin");
-				admin.setPassword(passwordEncoder.encode("Admin@123")); // secure password
+				admin.setPassword(passwordEncoder.encode("Admin@123"));
 				admin.setRole(Role.ADMIN);
+				admin.setVerified(true);
 				userRepository.save(admin);
 				System.out.println(
-						"Default Admin created with rollNumber: " + defaultAdminRoll + " and password: Admin@123");
+						"Default Admin created with email: " + defaultAdminEmail + " and password: Admin@123");
 			}
 		};
 	}

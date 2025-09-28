@@ -23,16 +23,22 @@ public class AdminService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserDto registerUser(RegisterRequestDto request) {
-        if (userRepository.findByRollNumber(request.getRollNumber()).isPresent()) {
-            throw new DataIntegrityViolationException("User with this roll number already exists");
+    public UserDto registerProvider(RegisterRequestDto request) {
+
+        if (request.getRole() != Role.PROVIDER) {
+            throw new RuntimeException("Admin can only register providers");
+        }
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new DataIntegrityViolationException("User with this email already exists");
         }
 
         User user = new User();
-        user.setRollNumber(request.getRollNumber());
+        user.setEmail(request.getEmail());
         user.setName(request.getName());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
+        user.setRole(Role.PROVIDER);
+        user.setVerified(true);
 
         User savedUser = userRepository.save(user);
 
@@ -42,7 +48,7 @@ public class AdminService {
 
         return new UserDto(
                 savedUser.getId(),
-                savedUser.getRollNumber(),
+                savedUser.getEmail(),
                 savedUser.getName(),
                 savedUser.getRole());
     }
@@ -71,6 +77,6 @@ public class AdminService {
     }
 
     private UserDto convertToDto(User user) {
-        return new UserDto(user.getId(), user.getRollNumber(), user.getName(), user.getRole());
+        return new UserDto(user.getId(), user.getEmail(), user.getName(), user.getRole());
     }
 }
