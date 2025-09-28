@@ -5,6 +5,7 @@ import com.adrin.fc.dto.response.PaginatedResponseDto;
 import com.adrin.fc.dto.response.UserDto;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.Role;
+import com.adrin.fc.exception.InvalidRoleException;
 import com.adrin.fc.repository.UserRepository;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -26,7 +27,7 @@ public class AdminService {
     public UserDto registerProvider(RegisterRequestDto request) {
 
         if (request.getRole() != Role.PROVIDER) {
-            throw new RuntimeException("Admin can only register providers");
+            throw new InvalidRoleException("Admin can only register providers");
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {

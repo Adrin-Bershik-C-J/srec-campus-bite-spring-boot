@@ -12,6 +12,9 @@ import com.adrin.fc.dto.response.LoginResponseDto;
 import com.adrin.fc.dto.response.UserDto;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.Role;
+import com.adrin.fc.exception.EmailNotVerifiedException;
+import com.adrin.fc.exception.InvalidOtpException;
+import com.adrin.fc.exception.InvalidRoleException;
 import com.adrin.fc.repository.UserRepository;
 import com.adrin.fc.security.JwtUtil;
 
@@ -38,7 +41,7 @@ public class AuthService {
                         "User not found with email: " + request.getEmail()));
 
         if (!user.isVerified()) {
-            throw new RuntimeException("Email not verified. Please verify before login.");
+            throw new EmailNotVerifiedException("Email not verified. Please verify before login.");
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
@@ -49,13 +52,28 @@ public class AuthService {
 
     public UserDto register(RegisterRequestDto request) {
         if (request.getRole() != Role.USER) {
-            throw new RuntimeException("Only USER role can self-register");
+            throw new InvalidRoleException("Only USER role can self-register");
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DataIntegrityViolationException("Email already in use");
+        User existingUser = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (existingUser != null) {
+            if (existingUser.isVerified()) {
+                // Already verified → reject
+                throw new DataIntegrityViolationException("Email already in use");
+            } else {
+                // Not verified → resend OTP & update password if needed
+                existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
+                existingUser.setName(request.getName());
+                userRepository.save(existingUser);
+
+                otpService.sendOtp(existingUser.getEmail());
+                return new UserDto(existingUser.getId(), existingUser.getEmail(), existingUser.getName(),
+                        existingUser.getRole());
+            }
         }
 
+        // First time registration
         User user = new User();
         user.setEmail(request.getEmail());
         user.setName(request.getName());
@@ -64,7 +82,6 @@ public class AuthService {
         user.setVerified(false);
 
         User savedUser = userRepository.save(user);
-
         otpService.sendOtp(savedUser.getEmail());
 
         return new UserDto(savedUser.getId(), savedUser.getEmail(), savedUser.getName(), savedUser.getRole());
@@ -78,7 +95,7 @@ public class AuthService {
             user.setVerified(true);
             userRepository.save(user);
         } else {
-            throw new RuntimeException("Invalid OTP");
+            throw new InvalidOtpException("Invalid OTP");
         }
     }
 
