@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Random;
@@ -17,10 +18,11 @@ public class OtpService {
     private final JavaMailSender mailSender;
     private final OtpRepository otpRepository;
 
+    @Transactional
     public void sendOtp(String email) {
         String otp = String.format("%06d", new Random().nextInt(999999));
 
-        LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(1);
+        LocalDateTime expiryTime = LocalDateTime.now().plusSeconds(30);
 
         otpRepository.deleteByEmail(email);
 
@@ -35,10 +37,11 @@ public class OtpService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("Your OTP Verification Code");
-        message.setText("Your OTP is: " + otp + "\nIt will expire in 1 minute.");
+        message.setText("Your OTP is: " + otp + "\nIt will expire in 30 seconds.");
         mailSender.send(message);
     }
 
+    @Transactional
     public boolean verifyOtp(String email, String otp) {
         return otpRepository.findByEmail(email)
                 .filter(o -> o.getExpiryTime().isAfter(LocalDateTime.now()))
