@@ -77,6 +77,17 @@ public class AdminService {
                 dtoPage.isLast());
     }
 
+    public void deleteProvider(Long providerId) {
+        User user = userRepository.findById(providerId)
+                .orElseThrow(() -> new EntityNotFoundException("Provider not found with id: " + providerId));
+
+        if (user.getRole() != Role.PROVIDER) {
+            throw new InvalidRoleException("Only providers can be deleted by admin");
+        }
+
+        userRepository.delete(user);
+    }
+
     private UserDto convertToDto(User user) {
         return new UserDto(user.getId(), user.getEmail(), user.getName(), user.getRole());
     }
