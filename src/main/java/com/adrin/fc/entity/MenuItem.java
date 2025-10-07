@@ -1,6 +1,11 @@
 package com.adrin.fc.entity;
 
+import com.adrin.fc.enums.MenuTag;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,7 +17,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "menus")
+@Table(name = "menu_items")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -26,6 +31,10 @@ public class MenuItem {
     private double price;
 
     private boolean available;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MenuTag tag;
 
     @ManyToOne
     @JoinColumn(name = "provider_id", nullable = false)

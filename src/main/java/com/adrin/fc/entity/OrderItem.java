@@ -16,7 +16,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "menus")
+@Table(name = "order_items")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -31,10 +31,16 @@ public class OrderItem {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
+    private double subtotal;
+
     @ManyToOne
     @JoinColumn(name = "menu_id", nullable = false)
     private MenuItem menuItem;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
+
+    @ManyToOne
+    @JoinColumn(name = "provider_id", nullable = false)
+    private Provider provider;
 }
