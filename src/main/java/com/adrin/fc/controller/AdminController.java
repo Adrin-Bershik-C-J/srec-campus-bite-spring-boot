@@ -53,6 +53,7 @@ public class AdminController {
         adminService.deleteProvider(id);
         Map<String, String> response = new HashMap<>();
         response.put("message", "Provider deleted successfully");
+        response.put("providerId", id.toString());
         return ResponseEntity.ok(response);
     }
 

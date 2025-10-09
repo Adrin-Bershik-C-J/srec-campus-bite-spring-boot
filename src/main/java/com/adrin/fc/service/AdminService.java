@@ -8,10 +8,10 @@ import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.Role;
 import com.adrin.fc.exception.InvalidRoleException;
+import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.ProviderRepository;
 import com.adrin.fc.repository.UserRepository;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -83,13 +84,18 @@ public class AdminService {
                 dtoPage.isLast());
     }
 
+    @Transactional
     public void deleteProvider(Long providerId) {
-        User user = userRepository.findById(providerId)
-                .orElseThrow(() -> new EntityNotFoundException("Provider not found with id: " + providerId));
+        Provider provider = providerRepository.findById(providerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider not found with id: " + providerId));
 
-        if (user.getRole() != Role.PROVIDER) {
+        User user = provider.getUser();
+
+        if (user == null || user.getRole() != Role.PROVIDER) {
             throw new InvalidRoleException("Only providers can be deleted by admin");
         }
+
+        providerRepository.delete(provider);
 
         userRepository.delete(user);
     }

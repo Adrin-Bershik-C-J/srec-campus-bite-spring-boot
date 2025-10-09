@@ -51,7 +51,7 @@ public class ProviderService {
                 item.isAvailable(),
                 item.getTag(),
                 item.getProvider().getId(),
-                item.getProvider().getName());
+                item.getProvider().getProviderName());
     }
 
 }
