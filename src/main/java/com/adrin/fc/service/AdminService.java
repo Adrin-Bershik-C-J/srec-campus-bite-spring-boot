@@ -1,11 +1,14 @@
 package com.adrin.fc.service;
 
-import com.adrin.fc.dto.request.RegisterRequestDto;
+import com.adrin.fc.dto.request.ProviderRegisterRequestDto;
 import com.adrin.fc.dto.response.PaginatedResponseDto;
+import com.adrin.fc.dto.response.ProviderResponseDto;
 import com.adrin.fc.dto.response.UserDto;
+import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.Role;
 import com.adrin.fc.exception.InvalidRoleException;
+import com.adrin.fc.repository.ProviderRepository;
 import com.adrin.fc.repository.UserRepository;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -23,12 +26,9 @@ public class AdminService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ProviderRepository providerRepository;
 
-    public UserDto registerProvider(RegisterRequestDto request) {
-
-        if (request.getRole() != Role.PROVIDER) {
-            throw new InvalidRoleException("Admin can only register providers");
-        }
+    public ProviderResponseDto registerProvider(ProviderRegisterRequestDto request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DataIntegrityViolationException("User with this email already exists");
@@ -43,29 +43,35 @@ public class AdminService {
 
         User savedUser = userRepository.save(user);
 
-        if (savedUser == null) {
-            throw new EntityNotFoundException("Failed to save user");
-        }
+        Provider provider = new Provider();
+        provider.setProviderName(request.getProviderName());
+        provider.setContact(request.getContact());
+        provider.setUser(savedUser);
+        provider.setActive(true);
 
-        return new UserDto(
-                savedUser.getId(),
-                savedUser.getEmail(),
-                savedUser.getName(),
-                savedUser.getRole());
+        Provider savedProvider = providerRepository.save(provider);
+
+        return ProviderResponseDto.builder()
+                .providerId(savedProvider.getId())
+                .providerName(savedProvider.getProviderName())
+                .contact(savedProvider.getContact())
+                .userId(savedUser.getId())
+                .name(savedUser.getName())
+                .email(savedUser.getEmail())
+                .role(savedUser.getRole())
+                .active(savedProvider.isActive())
+                .verified(savedUser.isVerified())
+                .build();
     }
 
     public PaginatedResponseDto<UserDto> getAllUsers(Role role, Pageable pageable) {
         Page<User> usersPage;
 
         if (role != null) {
-            // Filter by role
             usersPage = userRepository.findByRole(role, pageable);
         } else {
-            // No filter, get all
             usersPage = userRepository.findAll(pageable);
         }
-
-        // Convert User -> UserDto
         Page<UserDto> dtoPage = usersPage.map(this::convertToDto);
 
         return new PaginatedResponseDto<>(

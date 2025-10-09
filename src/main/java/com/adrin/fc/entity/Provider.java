@@ -30,6 +30,9 @@ public class Provider {
     private String name;
 
     @Column(nullable = false)
+    private String providerName;
+
+    @Column(nullable = false)
     private String contact;
 
     private boolean active = true;

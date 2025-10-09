@@ -17,8 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 
-import com.adrin.fc.dto.request.RegisterRequestDto;
+import com.adrin.fc.dto.request.ProviderRegisterRequestDto;
 import com.adrin.fc.dto.response.PaginatedResponseDto;
+import com.adrin.fc.dto.response.ProviderResponseDto;
 import com.adrin.fc.dto.response.UserDto;
 import com.adrin.fc.enums.Role;
 import com.adrin.fc.service.AdminService;
@@ -35,7 +36,7 @@ public class AdminController {
 
     @PostMapping("/register")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDto> register(@Valid @RequestBody RegisterRequestDto request) {
+    public ResponseEntity<ProviderResponseDto> register(@Valid @RequestBody ProviderRegisterRequestDto request) {
         return ResponseEntity.ok(adminService.registerProvider(request));
     }
 
@@ -50,10 +51,8 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> deleteProvider(@PathVariable Long id) {
         adminService.deleteProvider(id);
-
         Map<String, String> response = new HashMap<>();
         response.put("message", "Provider deleted successfully");
-
         return ResponseEntity.ok(response);
     }
 
