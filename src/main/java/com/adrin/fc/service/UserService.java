@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,8 @@ import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.MenuTag;
 import com.adrin.fc.enums.OrderStatus;
+import com.adrin.fc.exception.InvalidOperationException;
+import com.adrin.fc.exception.PaymentProcessingException;
 import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.MenuItemRepository;
 import com.adrin.fc.repository.OrderItemRepository;
@@ -81,7 +84,7 @@ public class UserService {
             PaymentIntent intent = PaymentIntent.create(params);
             return new PaymentIntentResponseDto(intent.getClientSecret());
         } catch (Exception e) {
-            throw new RuntimeException("Error creating payment intent: " + e.getMessage());
+            throw new PaymentProcessingException("Error creating payment intent: " + e.getMessage());
         }
     }
 
@@ -130,11 +133,11 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order item not found"));
 
         if (!orderItem.getOrder().getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot update someone else's order");
+            throw new AccessDeniedException("You cannot update someone else's order");
         }
 
         if (orderItem.getOrderStatus() != OrderStatus.READY) {
-            throw new RuntimeException("Only READY orders can be marked as DONE");
+            throw new InvalidOperationException("Only READY orders can be marked as DONE");
         }
 
         orderItem.setOrderStatus(OrderStatus.DONE);

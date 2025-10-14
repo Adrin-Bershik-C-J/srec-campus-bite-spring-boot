@@ -81,6 +81,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InvalidOperationException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidOperation(InvalidOperationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(PaymentProcessingException.class)
+    public ResponseEntity<Map<String, String>> handlePaymentProcessing(PaymentProcessingException ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntimeExceptions(RuntimeException ex) {
         Map<String, String> error = new HashMap<>();
