@@ -1,5 +1,8 @@
 package com.adrin.fc.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -118,7 +121,24 @@ public class UserService {
         }
 
         double total = calculateTotal(request);
-        String token = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        // --- Generate sequential token ---
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        Order lastOrder = orderRepository
+                .findFirstByCreatedAtBetweenOrderByCreatedAtDesc(startOfDay, endOfDay)
+                .orElse(null);
+
+        int nextNumber = 1;
+        if (lastOrder != null) {
+            String numberPart = lastOrder.getTokenNumber().replaceAll("[^0-9]", "");
+            nextNumber = Integer.parseInt(numberPart) + 1;
+        }
+
+        String token = String.format("O%03d", nextNumber);
+
         String qrData = "QR-" + UUID.randomUUID().toString().substring(0, 10);
 
         Order order = new Order();
