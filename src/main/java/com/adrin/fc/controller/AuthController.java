@@ -1,5 +1,8 @@
 package com.adrin.fc.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,15 +46,18 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
         authService.sendPasswordResetOtp(request.getEmail());
-        return ResponseEntity.ok("OTP sent to your email");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "OTP sent to your email");
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
         authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
-        return ResponseEntity.ok("Password reset successfully");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Password reset successfully");
+        return ResponseEntity.ok(response);
     }
-
 }
