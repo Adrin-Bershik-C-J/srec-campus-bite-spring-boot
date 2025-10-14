@@ -22,7 +22,7 @@ public class OtpService {
     public void sendOtp(String email) {
         String otp = String.format("%06d", new Random().nextInt(999999));
 
-        LocalDateTime expiryTime = LocalDateTime.now().plusSeconds(30);
+        LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(1);
 
         otpRepository.deleteByEmail(email);
 
@@ -37,7 +37,7 @@ public class OtpService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("Your OTP Verification Code");
-        message.setText("Your OTP is: " + otp + "\nIt will expire in 30 seconds.");
+        message.setText("Your OTP is: " + otp + "\nIt will expire in 60 seconds.");
         mailSender.send(message);
     }
 

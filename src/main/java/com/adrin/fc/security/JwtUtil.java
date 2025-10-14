@@ -2,6 +2,8 @@ package com.adrin.fc.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -11,8 +13,11 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    private final String SECRET = "MySuperSecretKeyForJwtGeneration12345"; 
-    private final long EXPIRATION_TIME = 1000 * 60 * 60; 
+    @Value("${jwt.secret}")
+    private String SECRET;
+
+    @Value("${jwt.expiration}")
+    private long EXPIRATION_TIME;
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes());

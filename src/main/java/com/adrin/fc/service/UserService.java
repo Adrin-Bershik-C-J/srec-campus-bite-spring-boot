@@ -1,21 +1,36 @@
 package com.adrin.fc.service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.adrin.fc.dto.request.OrderRequestDto;
 import com.adrin.fc.dto.response.MenuItemDto;
+import com.adrin.fc.dto.response.OrderHistoryItemDto;
+import com.adrin.fc.dto.response.OrderHistoryResponseDto;
 import com.adrin.fc.dto.response.PaginatedResponseDto;
+import com.adrin.fc.dto.response.PaymentIntentResponseDto;
 import com.adrin.fc.dto.response.ProviderResponseDto;
 import com.adrin.fc.entity.MenuItem;
+import com.adrin.fc.entity.Order;
+import com.adrin.fc.entity.OrderItem;
 import com.adrin.fc.entity.Provider;
+import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.MenuTag;
+import com.adrin.fc.enums.OrderStatus;
 import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.MenuItemRepository;
+import com.adrin.fc.repository.OrderItemRepository;
+import com.adrin.fc.repository.OrderRepository;
 import com.adrin.fc.repository.ProviderRepository;
+import com.adrin.fc.repository.UserRepository;
+import com.stripe.model.PaymentIntent;
+import com.stripe.param.PaymentIntentCreateParams;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +40,9 @@ public class UserService {
 
     private final ProviderRepository providerRepository;
     private final MenuItemRepository menuItemRepository;
+    private final UserRepository userRepository;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
 
     public List<ProviderResponseDto> getAllProviders() {
         List<Provider> providers = providerRepository.findAll();
@@ -48,6 +66,112 @@ public class UserService {
                 items.getTotalElements(),
                 items.getTotalPages(),
                 items.isLast());
+    }
+
+    public PaymentIntentResponseDto createPaymentIntent(OrderRequestDto request) {
+        double totalAmount = calculateTotal(request);
+        long amountInCents = (long) (totalAmount * 100);
+
+        try {
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency("inr")
+                    .build();
+
+            PaymentIntent intent = PaymentIntent.create(params);
+            return new PaymentIntentResponseDto(intent.getClientSecret());
+        } catch (Exception e) {
+            throw new RuntimeException("Error creating payment intent: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void placeOrder(String email, OrderRequestDto request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        double total = calculateTotal(request);
+
+        String token = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String qrData = "QR-" + UUID.randomUUID().toString().substring(0, 10);
+
+        Order order = new Order();
+        order.setUser(user);
+        order.setTotalPrice(total);
+        order.setTokenNumber(token);
+        order.setQrCodeData(qrData);
+
+        List<OrderItem> orderItems = request.getItems().stream().map(itemReq -> {
+            MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+            orderItem.setMenuItem(menuItem);
+            orderItem.setQuantity(itemReq.getQuantity());
+            orderItem.setSubtotal(menuItem.getPrice() * itemReq.getQuantity());
+            orderItem.setProvider(menuItem.getProvider());
+            orderItem.setOrderStatus(OrderStatus.PLACED);
+            return orderItem;
+        }).collect(Collectors.toList());
+
+        order.setOrderItems(orderItems);
+
+        orderRepository.save(order);
+    }
+
+    @Transactional
+    public void markOrderItemDone(String email, Long orderItemId) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        OrderItem orderItem = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order item not found"));
+
+        if (!orderItem.getOrder().getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You cannot update someone else's order");
+        }
+
+        if (orderItem.getOrderStatus() != OrderStatus.READY) {
+            throw new RuntimeException("Only READY orders can be marked as DONE");
+        }
+
+        orderItem.setOrderStatus(OrderStatus.DONE);
+        orderItemRepository.save(orderItem);
+    }
+
+    public Page<OrderHistoryResponseDto> getUserOrderHistory(String email, Pageable pageable) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        Page<Order> orders = orderRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+
+        return orders.map(order -> {
+            List<OrderHistoryItemDto> itemDtos = order.getOrderItems().stream()
+                    .map(oi -> new OrderHistoryItemDto(
+                            oi.getMenuItem().getId(),
+                            oi.getMenuItem().getItemName(),
+                            oi.getQuantity()))
+                    .toList();
+
+            return new OrderHistoryResponseDto(
+                    order.getId(),
+                    order.getTotalPrice(),
+                    order.getCreatedAt(),
+                    itemDtos);
+        });
+    }
+
+    private double calculateTotal(OrderRequestDto request) {
+        return request.getItems().stream()
+                .mapToDouble(i -> {
+                    MenuItem item = menuItemRepository.findById(i.getMenuItemId())
+                            .orElseThrow(
+                                    () -> new ResourceNotFoundException("Menu item not found: " + i.getMenuItemId()));
+                    return item.getPrice() * i.getQuantity();
+                })
+                .sum();
     }
 
     private ProviderResponseDto toDto(Provider provider) {
