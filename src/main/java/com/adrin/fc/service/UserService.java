@@ -72,6 +72,18 @@ public class UserService {
     }
 
     public PaymentIntentResponseDto createPaymentIntent(OrderRequestDto request) {
+        // Validate that all menu items are available
+        for (var itemReq : request.getItems()) {
+            MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
+
+            if (!menuItem.isAvailable()) {
+                throw new InvalidOperationException(
+                        "Menu item '" + menuItem.getItemName() + "' is currently unavailable");
+            }
+        }
+
         double totalAmount = calculateTotal(request);
         long amountInCents = (long) (totalAmount * 100);
 
@@ -93,8 +105,19 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        double total = calculateTotal(request);
+        // Ensure all menu items are available
+        for (var itemReq : request.getItems()) {
+            MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
 
+            if (!menuItem.isAvailable()) {
+                throw new InvalidOperationException(
+                        "Menu item '" + menuItem.getItemName() + "' is currently unavailable");
+            }
+        }
+
+        double total = calculateTotal(request);
         String token = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         String qrData = "QR-" + UUID.randomUUID().toString().substring(0, 10);
 
@@ -120,7 +143,6 @@ public class UserService {
         }).collect(Collectors.toList());
 
         order.setOrderItems(orderItems);
-
         orderRepository.save(order);
     }
 
