@@ -5,6 +5,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.adrin.fc.dto.request.LoginRequestDto;
 import com.adrin.fc.dto.request.RegisterRequestDto;
@@ -45,7 +46,6 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-
         return new LoginResponseDto(token, user.getRole().name(), user.getEmail(), user.getName());
 
     }
@@ -97,6 +97,31 @@ public class AuthService {
         } else {
             throw new InvalidOtpException("Invalid OTP");
         }
+    }
+
+    @Transactional
+    public void sendPasswordResetOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (!user.isVerified()) {
+            throw new IllegalStateException("Email not verified. Cannot reset password.");
+        }
+
+        otpService.sendOtp(email);
+    }
+
+    @Transactional
+    public void resetPassword(String email, String otp, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        if (!otpService.verifyOtp(email, otp)) {
+            throw new InvalidOtpException("Invalid or expired OTP");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
 }

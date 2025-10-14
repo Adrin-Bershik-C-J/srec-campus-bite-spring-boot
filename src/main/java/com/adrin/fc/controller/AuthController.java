@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.adrin.fc.dto.request.ForgotPasswordRequestDto;
 import com.adrin.fc.dto.request.LoginRequestDto;
 import com.adrin.fc.dto.request.RegisterRequestDto;
+import com.adrin.fc.dto.request.ResetPasswordRequestDto;
 import com.adrin.fc.dto.request.VerifyOtpRequestDto;
 import com.adrin.fc.dto.response.LoginResponseDto;
 import com.adrin.fc.dto.response.UserDto;
@@ -38,6 +40,18 @@ public class AuthController {
     public ResponseEntity<VerifyOtpResponseDto> verifyEmail(@Valid @RequestBody VerifyOtpRequestDto request) {
         authService.verifyEmail(request.getEmail(), request.getOtp());
         return ResponseEntity.ok(new VerifyOtpResponseDto("Email verified successfully", true));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
+        authService.sendPasswordResetOtp(request.getEmail());
+        return ResponseEntity.ok("OTP sent to your email");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok("Password reset successfully");
     }
 
 }
