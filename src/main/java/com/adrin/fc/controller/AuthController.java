@@ -40,9 +40,9 @@ public class AuthController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<VerifyOtpResponseDto> verifyEmail(@Valid @RequestBody VerifyOtpRequestDto request) {
-        authService.verifyEmail(request.getEmail(), request.getOtp());
-        return ResponseEntity.ok(new VerifyOtpResponseDto("Email verified successfully", true));
+    public ResponseEntity<LoginResponseDto> verifyEmail(@Valid @RequestBody VerifyOtpRequestDto request) {
+        LoginResponseDto response = authService.verifyEmail(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/forgot-password")

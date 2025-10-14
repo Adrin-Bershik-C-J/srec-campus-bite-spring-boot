@@ -87,16 +87,25 @@ public class AuthService {
         return new UserDto(savedUser.getId(), savedUser.getEmail(), savedUser.getName(), savedUser.getRole());
     }
 
-    public void verifyEmail(String email, String otp) {
+    public LoginResponseDto verifyEmail(String email, String otp) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
-        if (otpService.verifyOtp(email, otp)) {
-            user.setVerified(true);
-            userRepository.save(user);
-        } else {
-            throw new InvalidOtpException("Invalid OTP");
+        if (!otpService.verifyOtp(email, otp)) {
+            throw new InvalidOtpException("Invalid or expired OTP");
         }
+
+        user.setVerified(true);
+        userRepository.save(user);
+
+        // ✅ Generate JWT token now that the user is verified
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+
+        return new LoginResponseDto(
+                token,
+                user.getRole().name(),
+                user.getEmail(),
+                user.getName());
     }
 
     @Transactional
