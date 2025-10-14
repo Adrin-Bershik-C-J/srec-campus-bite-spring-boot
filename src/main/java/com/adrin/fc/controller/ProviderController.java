@@ -24,7 +24,10 @@ import org.springframework.data.web.PageableDefault;
 
 import com.adrin.fc.dto.request.MenuItemRequestDto;
 import com.adrin.fc.dto.response.MenuItemDto;
+import com.adrin.fc.dto.response.OrderItemDto;
+import com.adrin.fc.dto.response.PaginatedResponseDto;
 import com.adrin.fc.enums.MenuTag;
+import com.adrin.fc.enums.OrderStatus;
 import com.adrin.fc.service.ProviderService;
 
 import jakarta.validation.Valid;
@@ -72,6 +75,34 @@ public class ProviderController {
     public ResponseEntity<?> deleteMenuItem(@AuthenticationPrincipal UserDetails user, @PathVariable Long id) {
         providerService.deleteMenuItem(user.getUsername(), id);
         return ResponseEntity.ok().body(Map.of("message", "Menu item deleted successfully", "itemId", id));
+    }
+
+    @GetMapping("/orders")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<PaginatedResponseDto<OrderItemDto>> getPlacedOrders(
+            @AuthenticationPrincipal UserDetails user,
+            @RequestParam(required = false) MenuTag tag,
+            @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity
+                .ok(providerService.getOrdersByStatus(user.getUsername(), OrderStatus.PLACED, tag, pageable));
+    }
+
+    @GetMapping("/orders/history")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<PaginatedResponseDto<OrderItemDto>> getOrderHistory(
+            @AuthenticationPrincipal UserDetails user,
+            @RequestParam(required = false) MenuTag tag,
+            @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(providerService.getAllOrders(user.getUsername(), tag, pageable));
+    }
+
+    @PatchMapping("/orders/{orderItemId}/ready")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<Map<String, String>> markOrderReady(
+            @AuthenticationPrincipal UserDetails user,
+            @PathVariable Long orderItemId) {
+        providerService.markOrderReady(user.getUsername(), orderItemId);
+        return ResponseEntity.ok(Map.of("message", "Order item marked as READY"));
     }
 
 }

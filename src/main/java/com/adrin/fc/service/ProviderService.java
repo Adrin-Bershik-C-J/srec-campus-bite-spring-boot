@@ -1,19 +1,28 @@
 package com.adrin.fc.service;
 
 import org.springframework.stereotype.Service;
+
+import java.util.stream.Collectors;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.adrin.fc.dto.request.MenuItemRequestDto;
+import com.adrin.fc.dto.response.OrderItemDto;
 import com.adrin.fc.dto.response.MenuItemDto;
+import com.adrin.fc.dto.response.PaginatedResponseDto;
 import com.adrin.fc.entity.MenuItem;
+import com.adrin.fc.entity.OrderItem;
 import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.MenuTag;
+import com.adrin.fc.enums.OrderStatus;
 import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.MenuItemRepository;
+import com.adrin.fc.repository.OrderItemRepository;
 import com.adrin.fc.repository.ProviderRepository;
 import com.adrin.fc.repository.UserRepository;
 
@@ -25,6 +34,7 @@ public class ProviderService {
     private final ProviderRepository providerRepository;
     private final MenuItemRepository menuItemRepository;
     private final UserRepository userRepository;
+    private final OrderItemRepository orderItemRepository;
 
     private Provider getProviderByEmail(String email) {
         User user = userRepository.findByEmail(email)
@@ -114,6 +124,77 @@ public class ProviderService {
         item.setAvailable(!item.isAvailable());
         MenuItem updated = menuItemRepository.save(item);
         return toDto(updated);
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponseDto<OrderItemDto> getOrdersByStatus(String email, OrderStatus status, MenuTag tag,
+            Pageable pageable) {
+        Provider provider = getProviderByEmail(email);
+        Page<OrderItem> items;
+        if (tag != null) {
+            items = orderItemRepository.findByProviderAndOrderStatusAndMenuItemTag(provider, status, tag, pageable);
+        } else {
+            items = orderItemRepository.findByProviderAndOrderStatus(provider, status, pageable);
+        }
+        List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
+        return new PaginatedResponseDto<>(
+                dtos,
+                items.getNumber(),
+                items.getSize(),
+                items.getTotalElements(),
+                items.getTotalPages(),
+                items.isLast());
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponseDto<OrderItemDto> getAllOrders(String email, MenuTag tag, Pageable pageable) {
+        Provider provider = getProviderByEmail(email);
+        Page<OrderItem> items;
+        if (tag != null) {
+            items = orderItemRepository.findByProviderAndMenuItemTag(provider, tag, pageable);
+        } else {
+            items = orderItemRepository.findByProvider(provider, pageable);
+        }
+        List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
+        return new PaginatedResponseDto<>(
+                dtos,
+                items.getNumber(),
+                items.getSize(),
+                items.getTotalElements(),
+                items.getTotalPages(),
+                items.isLast());
+    }
+
+    @Transactional
+    public void markOrderReady(String email, Long orderItemId) {
+        Provider provider = getProviderByEmail(email);
+        OrderItem item = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order item not found: " + orderItemId));
+
+        if (!item.getProvider().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Unauthorized to update this order item");
+        }
+
+        if (item.getOrderStatus() != OrderStatus.PLACED) {
+            throw new IllegalStateException("Only PLACED items can be marked READY");
+        }
+
+        item.setOrderStatus(OrderStatus.READY);
+        orderItemRepository.save(item);
+    }
+
+    private OrderItemDto toDto(OrderItem item) {
+        return new OrderItemDto(
+                item.getId(),
+                item.getQuantity(),
+                item.getSubtotal(),
+                item.getOrderStatus(),
+                item.getMenuItem().getId(),
+                item.getMenuItem().getItemName(),
+                item.getMenuItem().getPrice(),
+                item.getOrder().getId(),
+                item.getProvider().getId(),
+                item.getProvider().getProviderName());
     }
 
     private MenuItemDto toDto(MenuItem item) {
