@@ -20,6 +20,7 @@ import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.MenuTag;
 import com.adrin.fc.enums.OrderStatus;
+import com.adrin.fc.exception.InvalidOperationException;
 import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.MenuItemRepository;
 import com.adrin.fc.repository.OrderItemRepository;
@@ -173,6 +174,10 @@ public class ProviderService {
 
         if (!item.getProvider().getId().equals(provider.getId())) {
             throw new AccessDeniedException("Unauthorized to update this order item");
+        }
+
+        if (item.getOrderStatus() == OrderStatus.READY) {
+            throw new InvalidOperationException("Order already READY");
         }
 
         if (item.getOrderStatus() != OrderStatus.PLACED) {
