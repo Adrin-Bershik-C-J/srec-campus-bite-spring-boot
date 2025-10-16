@@ -206,6 +206,7 @@ public class UserService {
 
             return new OrderHistoryResponseDto(
                     order.getId(),
+                    order.getTokenNumber(),
                     order.getTotalPrice(),
                     order.getCreatedAt(),
                     itemDtos);

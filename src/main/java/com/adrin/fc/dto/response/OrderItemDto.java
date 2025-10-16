@@ -20,6 +20,7 @@ public class OrderItemDto {
     private Double menuItemPrice; // MenuItem price
 
     private Long orderId; // Parent Order ID
+    private String tokenNumber;
     private Long providerId; // Provider ID
     private String providerName; // Provider name
 }

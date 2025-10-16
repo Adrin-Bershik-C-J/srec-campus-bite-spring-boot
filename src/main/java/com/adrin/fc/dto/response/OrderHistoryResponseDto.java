@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 public class OrderHistoryResponseDto {
     private Long orderId;
+    private String tokenNumber;
     private Double totalAmount;
     private LocalDateTime placedAt;
     private List<OrderHistoryItemDto> items;

@@ -198,6 +198,7 @@ public class ProviderService {
                 item.getMenuItem().getItemName(),
                 item.getMenuItem().getPrice(),
                 item.getOrder().getId(),
+                item.getOrder().getTokenNumber(),
                 item.getProvider().getId(),
                 item.getProvider().getProviderName());
     }
