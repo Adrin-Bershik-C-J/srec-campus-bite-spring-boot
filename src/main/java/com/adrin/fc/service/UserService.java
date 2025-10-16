@@ -128,7 +128,7 @@ public class UserService {
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
         Order lastOrder = orderRepository
-                .findFirstByCreatedAtBetweenOrderByCreatedAtDesc(startOfDay, endOfDay)
+                .findLastOrderForDayWithLock(startOfDay, endOfDay)
                 .orElse(null);
 
         int nextNumber = 1;
