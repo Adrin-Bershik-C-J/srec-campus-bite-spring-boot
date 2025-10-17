@@ -3,6 +3,9 @@ package com.adrin.fc.service;
 import org.springframework.stereotype.Service;
 
 import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -128,16 +131,25 @@ public class ProviderService {
     }
 
     @Transactional(readOnly = true)
-    public PaginatedResponseDto<OrderItemDto> getOrdersByStatus(String email, OrderStatus status, MenuTag tag,
+    public PaginatedResponseDto<OrderItemDto> getOrdersByStatus(
+            String email,
+            OrderStatus status,
+            MenuTag tag,
             Pageable pageable) {
+
         Provider provider = getProviderByEmail(email);
-        Page<OrderItem> items;
-        if (tag != null) {
-            items = orderItemRepository.findByProviderAndOrderStatusAndMenuItemTag(provider, status, tag, pageable);
-        } else {
-            items = orderItemRepository.findByProviderAndOrderStatus(provider, status, pageable);
-        }
-        List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        Page<OrderItem> items = orderItemRepository.findByProviderAndOrderStatusAndOrderCreatedAtBetween(
+                provider, status, startOfDay, endOfDay, pageable);
+
+        List<OrderItemDto> dtos = items.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+
         return new PaginatedResponseDto<>(
                 dtos,
                 items.getNumber(),
