@@ -69,9 +69,9 @@ public class AdminService {
         Page<User> usersPage;
 
         if (role != null) {
-            usersPage = userRepository.findByRole(role, pageable);
+            usersPage = userRepository.findByRoleAndVerified(role, true, pageable);
         } else {
-            usersPage = userRepository.findAll(pageable);
+            usersPage = userRepository.findByVerified(true, pageable);
         }
         Page<UserDto> dtoPage = usersPage.map(this::convertToDto);
 
