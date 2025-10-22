@@ -3,6 +3,9 @@ package com.adrin.fc.service;
 import org.springframework.stereotype.Service;
 
 import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -20,6 +23,7 @@ import com.adrin.fc.entity.Provider;
 import com.adrin.fc.entity.User;
 import com.adrin.fc.enums.MenuTag;
 import com.adrin.fc.enums.OrderStatus;
+import com.adrin.fc.exception.InvalidOperationException;
 import com.adrin.fc.exception.ResourceNotFoundException;
 import com.adrin.fc.repository.MenuItemRepository;
 import com.adrin.fc.repository.OrderItemRepository;
@@ -127,16 +131,25 @@ public class ProviderService {
     }
 
     @Transactional(readOnly = true)
-    public PaginatedResponseDto<OrderItemDto> getOrdersByStatus(String email, OrderStatus status, MenuTag tag,
+    public PaginatedResponseDto<OrderItemDto> getOrdersByStatus(
+            String email,
+            OrderStatus status,
+            MenuTag tag,
             Pageable pageable) {
+
         Provider provider = getProviderByEmail(email);
-        Page<OrderItem> items;
-        if (tag != null) {
-            items = orderItemRepository.findByProviderAndOrderStatusAndMenuItemTag(provider, status, tag, pageable);
-        } else {
-            items = orderItemRepository.findByProviderAndOrderStatus(provider, status, pageable);
-        }
-        List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
+
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        Page<OrderItem> items = orderItemRepository.findByProviderAndOrderStatusAndOrderCreatedAtBetween(
+                provider, status, startOfDay, endOfDay, pageable);
+
+        List<OrderItemDto> dtos = items.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+
         return new PaginatedResponseDto<>(
                 dtos,
                 items.getNumber(),
@@ -175,6 +188,10 @@ public class ProviderService {
             throw new AccessDeniedException("Unauthorized to update this order item");
         }
 
+        if (item.getOrderStatus() == OrderStatus.READY) {
+            throw new InvalidOperationException("Order already READY");
+        }
+
         if (item.getOrderStatus() != OrderStatus.PLACED) {
             throw new IllegalStateException("Only PLACED items can be marked READY");
         }
@@ -193,6 +210,7 @@ public class ProviderService {
                 item.getMenuItem().getItemName(),
                 item.getMenuItem().getPrice(),
                 item.getOrder().getId(),
+                item.getOrder().getTokenNumber(),
                 item.getProvider().getId(),
                 item.getProvider().getProviderName());
     }

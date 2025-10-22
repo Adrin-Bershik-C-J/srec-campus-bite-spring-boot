@@ -128,7 +128,7 @@ public class UserService {
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
         Order lastOrder = orderRepository
-                .findFirstByCreatedAtBetweenOrderByCreatedAtDesc(startOfDay, endOfDay)
+                .findLastOrderForDayWithLock(startOfDay, endOfDay)
                 .orElse(null);
 
         int nextNumber = 1;
@@ -178,6 +178,10 @@ public class UserService {
             throw new AccessDeniedException("You cannot update someone else's order");
         }
 
+        if (orderItem.getOrderStatus() == OrderStatus.DONE) {
+            throw new InvalidOperationException("Order already DONE");
+        }
+
         if (orderItem.getOrderStatus() != OrderStatus.READY) {
             throw new InvalidOperationException("Only READY orders can be marked as DONE");
         }
@@ -202,6 +206,7 @@ public class UserService {
 
             return new OrderHistoryResponseDto(
                     order.getId(),
+                    order.getTokenNumber(),
                     order.getTotalPrice(),
                     order.getCreatedAt(),
                     itemDtos);
