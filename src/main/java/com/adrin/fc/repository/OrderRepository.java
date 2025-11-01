@@ -36,4 +36,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT DISTINCT o FROM Order o JOIN o.orderItems oi WHERE o.user = :user AND oi.orderStatus = :status ORDER BY o.createdAt DESC")
     Page<Order> findByUserAndOrderItemsOrderStatusOrderByCreatedAtDesc(@Param("user") User user, @Param("status") OrderStatus status, Pageable pageable);
 
+    @Query("SELECT DISTINCT o FROM Order o JOIN o.orderItems oi WHERE o.user = :user AND oi.orderStatus IN :statuses ORDER BY o.createdAt DESC")
+    Page<Order> findByUserAndOrderItemsOrderStatusInOrderByCreatedAtDesc(@Param("user") User user, @Param("statuses") java.util.List<OrderStatus> statuses, Pageable pageable);
+
+    @Query("SELECT DISTINCT o FROM Order o WHERE o.user = :user AND NOT EXISTS (SELECT 1 FROM OrderItem oi WHERE oi.order = o AND oi.orderStatus != 'DONE') ORDER BY o.createdAt DESC")
+    Page<Order> findByUserAndAllOrderItemsDoneOrderByCreatedAtDesc(@Param("user") User user, Pageable pageable);
+
 }

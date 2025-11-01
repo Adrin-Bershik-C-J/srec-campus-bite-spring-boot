@@ -210,7 +210,7 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-        Page<Order> orders = orderRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        Page<Order> orders = orderRepository.findByUserAndAllOrderItemsDoneOrderByCreatedAtDesc(user, pageable);
 
         return orders.map(order -> {
             List<OrderHistoryItemDto> itemDtos = order.getOrderItems().stream()
@@ -218,10 +218,10 @@ public class UserService {
                             oi.getId(),
                             oi.getMenuItem().getId(),
                             oi.getMenuItem().getItemName(),
-                            oi.getQuantity()))
+                            oi.getQuantity(),
+                            oi.getOrderStatus()))
                     .toList();
 
-            // Handle legacy orders without session ID
             String sessionId = order.getOrderSessionId();
             if (sessionId == null || sessionId.isEmpty()) {
                 sessionId = "LEGACY-" + order.getId();
@@ -237,20 +237,21 @@ public class UserService {
         });
     }
 
-    public Page<OrderHistoryResponseDto> getUserReadyOrders(String email, Pageable pageable) {
+    public Page<OrderHistoryResponseDto> getUserPendingOrders(String email, Pageable pageable) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
 
-        Page<Order> orders = orderRepository.findByUserAndOrderItemsOrderStatusOrderByCreatedAtDesc(user, OrderStatus.READY, pageable);
+        Page<Order> orders = orderRepository.findByUserAndOrderItemsOrderStatusInOrderByCreatedAtDesc(user, List.of(OrderStatus.PLACED, OrderStatus.READY), pageable);
 
         return orders.map(order -> {
             List<OrderHistoryItemDto> itemDtos = order.getOrderItems().stream()
-                    .filter(oi -> oi.getOrderStatus() == OrderStatus.READY)
+                    .filter(oi -> oi.getOrderStatus() == OrderStatus.PLACED || oi.getOrderStatus() == OrderStatus.READY)
                     .map(oi -> new OrderHistoryItemDto(
                             oi.getId(),
                             oi.getMenuItem().getId(),
                             oi.getMenuItem().getItemName(),
-                            oi.getQuantity()))
+                            oi.getQuantity(),
+                            oi.getOrderStatus()))
                     .toList();
 
             String sessionId = order.getOrderSessionId();

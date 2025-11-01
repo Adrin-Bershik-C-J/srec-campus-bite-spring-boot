@@ -84,4 +84,36 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             @Param("excludeStatus") OrderStatus excludeStatus,
             Pageable pageable);
 
+    Page<OrderItem> findByProviderAndOrderStatus(Provider provider, OrderStatus status, Pageable pageable);
+
+    Page<OrderItem> findByProviderAndMenuItemTagAndOrderStatus(Provider provider, MenuTag tag, OrderStatus status, Pageable pageable);
+
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+                  AND oi.orderStatus = :status
+            """)
+    Page<OrderItem> findByProviderAndOrderCreatedAtBetweenAndOrderStatus(
+            @Param("provider") Provider provider,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("status") OrderStatus status,
+            Pageable pageable);
+
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.menuItem.tag = :tag
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+                  AND oi.orderStatus = :status
+            """)
+    Page<OrderItem> findByProviderAndMenuItemTagAndOrderCreatedAtBetweenAndOrderStatus(
+            @Param("provider") Provider provider,
+            @Param("tag") MenuTag tag,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("status") OrderStatus status,
+            Pageable pageable);
+
 }

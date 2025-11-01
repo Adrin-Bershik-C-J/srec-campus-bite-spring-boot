@@ -97,12 +97,12 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserOrderHistory(user.getUsername(), pageable));
     }
 
-    @GetMapping("/orders/ready")
+    @GetMapping("/orders/pending")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<Page<OrderHistoryResponseDto>> getReadyOrders(
+    public ResponseEntity<Page<OrderHistoryResponseDto>> getPendingOrders(
             @AuthenticationPrincipal UserDetails user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(userService.getUserReadyOrders(user.getUsername(), pageable));
+        return ResponseEntity.ok(userService.getUserPendingOrders(user.getUsername(), pageable));
     }
 
 }

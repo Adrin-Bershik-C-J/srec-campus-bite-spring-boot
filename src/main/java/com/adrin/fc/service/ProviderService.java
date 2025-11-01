@@ -197,17 +197,17 @@ public class ProviderService {
             LocalDateTime endOfDay = filterDate.atTime(LocalTime.MAX);
             
             if (tag != null) {
-                items = orderItemRepository.findByProviderAndMenuItemTagAndOrderCreatedAtBetween(
-                    provider, tag, startOfDay, endOfDay, pageable);
+                items = orderItemRepository.findByProviderAndMenuItemTagAndOrderCreatedAtBetweenAndOrderStatus(
+                    provider, tag, startOfDay, endOfDay, OrderStatus.DONE, pageable);
             } else {
-                items = orderItemRepository.findByProviderAndOrderCreatedAtBetween(
-                    provider, startOfDay, endOfDay, pageable);
+                items = orderItemRepository.findByProviderAndOrderCreatedAtBetweenAndOrderStatus(
+                    provider, startOfDay, endOfDay, OrderStatus.DONE, pageable);
             }
         } else {
             if (tag != null) {
-                items = orderItemRepository.findByProviderAndMenuItemTag(provider, tag, pageable);
+                items = orderItemRepository.findByProviderAndMenuItemTagAndOrderStatus(provider, tag, OrderStatus.DONE, pageable);
             } else {
-                items = orderItemRepository.findByProvider(provider, pageable);
+                items = orderItemRepository.findByProviderAndOrderStatus(provider, OrderStatus.DONE, pageable);
             }
         }
         
