@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderHistoryItemDto {
+    private Long orderItemId;
     private Long itemId;
     private String itemName;
     private Integer quantity;

@@ -87,13 +87,23 @@ public class ProviderController {
                 .ok(providerService.getOrdersByStatus(user.getUsername(), OrderStatus.PLACED, tag, pageable));
     }
 
+    @GetMapping("/orders/today")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<PaginatedResponseDto<OrderItemDto>> getTodayOrders(
+            @AuthenticationPrincipal UserDetails user,
+            @RequestParam(required = false) MenuTag tag,
+            @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(providerService.getTodayOrders(user.getUsername(), tag, pageable));
+    }
+
     @GetMapping("/orders/history")
     @PreAuthorize("hasRole('PROVIDER')")
     public ResponseEntity<PaginatedResponseDto<OrderItemDto>> getOrderHistory(
             @AuthenticationPrincipal UserDetails user,
             @RequestParam(required = false) MenuTag tag,
+            @RequestParam(required = false) String date,
             @PageableDefault(size = 10, page = 0, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(providerService.getAllOrders(user.getUsername(), tag, pageable));
+        return ResponseEntity.ok(providerService.getAllOrders(user.getUsername(), tag, date, pageable));
     }
 
     @PatchMapping("/orders/{orderItemId}/ready")
@@ -103,6 +113,34 @@ public class ProviderController {
             @PathVariable Long orderItemId) {
         providerService.markOrderReady(user.getUsername(), orderItemId);
         return ResponseEntity.ok(Map.of("message", "Order item marked as READY"));
+    }
+
+    @PatchMapping("/orders/{orderItemId}/done")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<Map<String, String>> markOrderDone(
+            @AuthenticationPrincipal UserDetails user,
+            @PathVariable Long orderItemId) {
+        providerService.markOrderDone(user.getUsername(), orderItemId);
+        return ResponseEntity.ok(Map.of("message", "Order item marked as DONE"));
+    }
+
+    @PatchMapping("/toggle-status")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<Map<String, Object>> toggleProviderStatus(
+            @AuthenticationPrincipal UserDetails user) {
+        boolean newStatus = providerService.toggleProviderStatus(user.getUsername());
+        return ResponseEntity.ok(Map.of(
+            "message", "Provider status updated successfully",
+            "active", newStatus
+        ));
+    }
+
+    @GetMapping("/status")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<Map<String, Object>> getProviderStatus(
+            @AuthenticationPrincipal UserDetails user) {
+        boolean isActive = providerService.getProviderStatus(user.getUsername());
+        return ResponseEntity.ok(Map.of("active", isActive));
     }
 
 }

@@ -32,4 +32,56 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             @Param("endOfDay") LocalDateTime endOfDay,
             Pageable pageable);
 
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+            """)
+    Page<OrderItem> findByProviderAndOrderCreatedAtBetween(
+            @Param("provider") Provider provider,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            Pageable pageable);
+
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.menuItem.tag = :tag
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+            """)
+    Page<OrderItem> findByProviderAndMenuItemTagAndOrderCreatedAtBetween(
+            @Param("provider") Provider provider,
+            @Param("tag") MenuTag tag,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            Pageable pageable);
+
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+                  AND oi.orderStatus != :excludeStatus
+            """)
+    Page<OrderItem> findByProviderAndOrderCreatedAtBetweenAndOrderStatusNot(
+            @Param("provider") Provider provider,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("excludeStatus") OrderStatus excludeStatus,
+            Pageable pageable);
+
+    @Query("""
+                SELECT oi FROM OrderItem oi
+                WHERE oi.provider = :provider
+                  AND oi.menuItem.tag = :tag
+                  AND oi.order.createdAt BETWEEN :startOfDay AND :endOfDay
+                  AND oi.orderStatus != :excludeStatus
+            """)
+    Page<OrderItem> findByProviderAndMenuItemTagAndOrderCreatedAtBetweenAndOrderStatusNot(
+            @Param("provider") Provider provider,
+            @Param("tag") MenuTag tag,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay,
+            @Param("excludeStatus") OrderStatus excludeStatus,
+            Pageable pageable);
+
 }

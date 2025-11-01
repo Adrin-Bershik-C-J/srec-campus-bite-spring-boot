@@ -44,6 +44,9 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
 
+    @Column(nullable = true)
+    private String orderSessionId;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

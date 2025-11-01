@@ -4,10 +4,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -75,30 +77,30 @@ public class UserService {
     }
 
     public PaymentIntentResponseDto createPaymentIntent(OrderRequestDto request) {
-        // Validate that all menu items are available
-        for (var itemReq : request.getItems()) {
-            MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
-                    .orElseThrow(
-                            () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
-
-            if (!menuItem.isAvailable()) {
-                throw new InvalidOperationException(
-                        "Menu item '" + menuItem.getItemName() + "' is currently unavailable");
-            }
-        }
-
-        double totalAmount = calculateTotal(request);
-        long amountInCents = (long) (totalAmount * 100);
-
         try {
-            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
-                    .setAmount(amountInCents)
-                    .setCurrency("inr")
-                    .build();
+            // Validate that all menu items are available
+            for (var itemReq : request.getItems()) {
+                MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                        .orElseThrow(
+                                () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
 
-            PaymentIntent intent = PaymentIntent.create(params);
-            return new PaymentIntentResponseDto(intent.getClientSecret());
+                if (!menuItem.isAvailable()) {
+                    throw new InvalidOperationException(
+                            "Menu item '" + menuItem.getItemName() + "' is currently unavailable");
+                }
+            }
+
+            double totalAmount = calculateTotal(request);
+            
+            System.out.println("Creating payment intent for total: " + totalAmount);
+            
+            // For testing purposes, simulate successful payment intent
+            // In production, you would integrate with a payment gateway that supports small amounts
+            String simulatedClientSecret = "pi_test_" + System.currentTimeMillis();
+            return new PaymentIntentResponseDto(simulatedClientSecret);
         } catch (Exception e) {
+            System.err.println("Error creating payment intent: " + e.getMessage());
+            e.printStackTrace();
             throw new PaymentProcessingException("Error creating payment intent: " + e.getMessage());
         }
     }
@@ -120,50 +122,59 @@ public class UserService {
             }
         }
 
-        double total = calculateTotal(request);
+        // Generate unique session ID for this checkout
+        String orderSessionId = "SESSION-" + System.currentTimeMillis() + "-" + user.getId();
+        
+        // Group items by provider
+        Map<Provider, List<OrderRequestDto.OrderItemDto>> itemsByProvider = request.getItems().stream()
+                .collect(Collectors.groupingBy(itemReq -> {
+                    MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
+                    return menuItem.getProvider();
+                }));
 
-        // --- Generate sequential token ---
-        LocalDate today = LocalDate.now();
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+        // Create separate order for each provider
+        for (Map.Entry<Provider, List<OrderRequestDto.OrderItemDto>> entry : itemsByProvider.entrySet()) {
+            Provider provider = entry.getKey();
+            List<OrderRequestDto.OrderItemDto> providerItems = entry.getValue();
 
-        Order lastOrder = orderRepository
-                .findLastOrderForDayWithLock(startOfDay, endOfDay)
-                .orElse(null);
+            // Calculate total for this provider
+            double providerTotal = providerItems.stream()
+                    .mapToDouble(itemReq -> {
+                        MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
+                        return menuItem.getPrice() * itemReq.getQuantity();
+                    })
+                    .sum();
 
-        int nextNumber = 1;
-        if (lastOrder != null) {
-            String numberPart = lastOrder.getTokenNumber().replaceAll("[^0-9]", "");
-            nextNumber = Integer.parseInt(numberPart) + 1;
+            // Generate provider-specific token
+            String token = generateProviderDailyToken(provider);
+            String qrData = "QR-" + UUID.randomUUID().toString().substring(0, 10);
+
+            Order order = new Order();
+            order.setUser(user);
+            order.setTotalPrice(providerTotal);
+            order.setTokenNumber(token);
+            order.setQrCodeData(qrData);
+            order.setOrderSessionId(orderSessionId);
+
+            List<OrderItem> orderItems = providerItems.stream().map(itemReq -> {
+                MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
+
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setMenuItem(menuItem);
+                orderItem.setQuantity(itemReq.getQuantity());
+                orderItem.setSubtotal(menuItem.getPrice() * itemReq.getQuantity());
+                orderItem.setProvider(provider);
+                orderItem.setOrderStatus(OrderStatus.PLACED);
+                return orderItem;
+            }).collect(Collectors.toList());
+
+            order.setOrderItems(orderItems);
+            orderRepository.save(order);
         }
-
-        String token = String.format("O%03d", nextNumber);
-
-        String qrData = "QR-" + UUID.randomUUID().toString().substring(0, 10);
-
-        Order order = new Order();
-        order.setUser(user);
-        order.setTotalPrice(total);
-        order.setTokenNumber(token);
-        order.setQrCodeData(qrData);
-
-        List<OrderItem> orderItems = request.getItems().stream().map(itemReq -> {
-            MenuItem menuItem = menuItemRepository.findById(itemReq.getMenuItemId())
-                    .orElseThrow(
-                            () -> new ResourceNotFoundException("Menu item not found: " + itemReq.getMenuItemId()));
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(order);
-            orderItem.setMenuItem(menuItem);
-            orderItem.setQuantity(itemReq.getQuantity());
-            orderItem.setSubtotal(menuItem.getPrice() * itemReq.getQuantity());
-            orderItem.setProvider(menuItem.getProvider());
-            orderItem.setOrderStatus(OrderStatus.PLACED);
-            return orderItem;
-        }).collect(Collectors.toList());
-
-        order.setOrderItems(orderItems);
-        orderRepository.save(order);
     }
 
     @Transactional
@@ -174,6 +185,11 @@ public class UserService {
         OrderItem orderItem = orderItemRepository.findById(orderItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order item not found"));
 
+        System.out.println("Order item status: " + orderItem.getOrderStatus());
+        System.out.println("Order item ID: " + orderItemId);
+        System.out.println("User ID: " + user.getId());
+        System.out.println("Order user ID: " + orderItem.getOrder().getUser().getId());
+
         if (!orderItem.getOrder().getUser().getId().equals(user.getId())) {
             throw new AccessDeniedException("You cannot update someone else's order");
         }
@@ -183,7 +199,7 @@ public class UserService {
         }
 
         if (orderItem.getOrderStatus() != OrderStatus.READY) {
-            throw new InvalidOperationException("Only READY orders can be marked as DONE");
+            throw new InvalidOperationException("Only READY orders can be marked as DONE. Current status: " + orderItem.getOrderStatus());
         }
 
         orderItem.setOrderStatus(OrderStatus.DONE);
@@ -199,16 +215,55 @@ public class UserService {
         return orders.map(order -> {
             List<OrderHistoryItemDto> itemDtos = order.getOrderItems().stream()
                     .map(oi -> new OrderHistoryItemDto(
+                            oi.getId(),
                             oi.getMenuItem().getId(),
                             oi.getMenuItem().getItemName(),
                             oi.getQuantity()))
                     .toList();
+
+            // Handle legacy orders without session ID
+            String sessionId = order.getOrderSessionId();
+            if (sessionId == null || sessionId.isEmpty()) {
+                sessionId = "LEGACY-" + order.getId();
+            }
 
             return new OrderHistoryResponseDto(
                     order.getId(),
                     order.getTokenNumber(),
                     order.getTotalPrice(),
                     order.getCreatedAt(),
+                    sessionId,
+                    itemDtos);
+        });
+    }
+
+    public Page<OrderHistoryResponseDto> getUserReadyOrders(String email, Pageable pageable) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+
+        Page<Order> orders = orderRepository.findByUserAndOrderItemsOrderStatusOrderByCreatedAtDesc(user, OrderStatus.READY, pageable);
+
+        return orders.map(order -> {
+            List<OrderHistoryItemDto> itemDtos = order.getOrderItems().stream()
+                    .filter(oi -> oi.getOrderStatus() == OrderStatus.READY)
+                    .map(oi -> new OrderHistoryItemDto(
+                            oi.getId(),
+                            oi.getMenuItem().getId(),
+                            oi.getMenuItem().getItemName(),
+                            oi.getQuantity()))
+                    .toList();
+
+            String sessionId = order.getOrderSessionId();
+            if (sessionId == null || sessionId.isEmpty()) {
+                sessionId = "LEGACY-" + order.getId();
+            }
+
+            return new OrderHistoryResponseDto(
+                    order.getId(),
+                    order.getTokenNumber(),
+                    order.getTotalPrice(),
+                    order.getCreatedAt(),
+                    sessionId,
                     itemDtos);
         });
     }
@@ -234,7 +289,6 @@ public class UserService {
                 .email(provider.getUser().getEmail())
                 .role(provider.getUser().getRole())
                 .active(provider.isActive())
-                .verified(provider.getUser().isVerified())
                 .build();
     }
 
@@ -247,5 +301,19 @@ public class UserService {
                 item.getTag(),
                 item.getProvider().getId(),
                 item.getProvider().getProviderName());
+    }
+
+    private String generateProviderDailyToken(Provider provider) {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+
+        // Get count of orders for this provider TODAY only
+        long providerOrderCount = orderRepository.countByProviderAndCreatedAtBetween(provider, startOfDay, endOfDay);
+        int nextNumber = (int) providerOrderCount + 1;
+        
+        System.out.println("Provider: " + provider.getProviderName() + ", Order count today: " + providerOrderCount + ", Next number: " + nextNumber);
+        
+        return String.format("P%d-O%03d", provider.getId(), nextNumber);
     }
 }

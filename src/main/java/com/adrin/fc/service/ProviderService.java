@@ -160,14 +160,57 @@ public class ProviderService {
     }
 
     @Transactional(readOnly = true)
-    public PaginatedResponseDto<OrderItemDto> getAllOrders(String email, MenuTag tag, Pageable pageable) {
+    public PaginatedResponseDto<OrderItemDto> getTodayOrders(String email, MenuTag tag, Pageable pageable) {
         Provider provider = getProviderByEmail(email);
+        
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
+        
         Page<OrderItem> items;
         if (tag != null) {
-            items = orderItemRepository.findByProviderAndMenuItemTag(provider, tag, pageable);
+            items = orderItemRepository.findByProviderAndMenuItemTagAndOrderCreatedAtBetweenAndOrderStatusNot(
+                provider, tag, startOfDay, endOfDay, OrderStatus.DONE, pageable);
         } else {
-            items = orderItemRepository.findByProvider(provider, pageable);
+            items = orderItemRepository.findByProviderAndOrderCreatedAtBetweenAndOrderStatusNot(
+                provider, startOfDay, endOfDay, OrderStatus.DONE, pageable);
         }
+        
+        List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
+        return new PaginatedResponseDto<>(
+                dtos,
+                items.getNumber(),
+                items.getSize(),
+                items.getTotalElements(),
+                items.getTotalPages(),
+                items.isLast());
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponseDto<OrderItemDto> getAllOrders(String email, MenuTag tag, String date, Pageable pageable) {
+        Provider provider = getProviderByEmail(email);
+        Page<OrderItem> items;
+        
+        if (date != null && !date.isEmpty()) {
+            LocalDate filterDate = LocalDate.parse(date);
+            LocalDateTime startOfDay = filterDate.atStartOfDay();
+            LocalDateTime endOfDay = filterDate.atTime(LocalTime.MAX);
+            
+            if (tag != null) {
+                items = orderItemRepository.findByProviderAndMenuItemTagAndOrderCreatedAtBetween(
+                    provider, tag, startOfDay, endOfDay, pageable);
+            } else {
+                items = orderItemRepository.findByProviderAndOrderCreatedAtBetween(
+                    provider, startOfDay, endOfDay, pageable);
+            }
+        } else {
+            if (tag != null) {
+                items = orderItemRepository.findByProviderAndMenuItemTag(provider, tag, pageable);
+            } else {
+                items = orderItemRepository.findByProvider(provider, pageable);
+            }
+        }
+        
         List<OrderItemDto> dtos = items.stream().map(this::toDto).collect(Collectors.toList());
         return new PaginatedResponseDto<>(
                 dtos,
@@ -198,6 +241,41 @@ public class ProviderService {
 
         item.setOrderStatus(OrderStatus.READY);
         orderItemRepository.save(item);
+    }
+
+    @Transactional
+    public void markOrderDone(String email, Long orderItemId) {
+        Provider provider = getProviderByEmail(email);
+        OrderItem item = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order item not found: " + orderItemId));
+
+        if (!item.getProvider().getId().equals(provider.getId())) {
+            throw new AccessDeniedException("Unauthorized to update this order item");
+        }
+
+        if (item.getOrderStatus() == OrderStatus.DONE) {
+            throw new InvalidOperationException("Order already DONE");
+        }
+
+        if (item.getOrderStatus() != OrderStatus.READY) {
+            throw new IllegalStateException("Only READY items can be marked DONE");
+        }
+
+        item.setOrderStatus(OrderStatus.DONE);
+        orderItemRepository.save(item);
+    }
+
+    @Transactional
+    public boolean toggleProviderStatus(String email) {
+        Provider provider = getProviderByEmail(email);
+        provider.setActive(!provider.isActive());
+        providerRepository.save(provider);
+        return provider.isActive();
+    }
+
+    public boolean getProviderStatus(String email) {
+        Provider provider = getProviderByEmail(email);
+        return provider.isActive();
     }
 
     private OrderItemDto toDto(OrderItem item) {

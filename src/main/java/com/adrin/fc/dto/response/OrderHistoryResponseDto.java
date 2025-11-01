@@ -14,5 +14,6 @@ public class OrderHistoryResponseDto {
     private String tokenNumber;
     private Double totalAmount;
     private LocalDateTime placedAt;
+    private String orderSessionId;
     private List<OrderHistoryItemDto> items;
 }

@@ -62,10 +62,18 @@ public class UserController {
     public ResponseEntity<Map<String, String>> placeOrder(
             @AuthenticationPrincipal UserDetails user,
             @RequestBody OrderRequestDto request) {
-        userService.placeOrder(user.getUsername(), request);
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Order placed successfully!");
-        return ResponseEntity.ok(response);
+        try {
+            System.out.println("Placing order for user: " + user.getUsername());
+            System.out.println("Order request: " + request);
+            userService.placeOrder(user.getUsername(), request);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Order placed successfully!");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error placing order: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @PatchMapping("/orders/{orderItemId}/complete")
@@ -87,6 +95,14 @@ public class UserController {
             @AuthenticationPrincipal UserDetails user,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(userService.getUserOrderHistory(user.getUsername(), pageable));
+    }
+
+    @GetMapping("/orders/ready")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Page<OrderHistoryResponseDto>> getReadyOrders(
+            @AuthenticationPrincipal UserDetails user,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(userService.getUserReadyOrders(user.getUsername(), pageable));
     }
 
 }
